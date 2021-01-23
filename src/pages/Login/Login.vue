@@ -32,16 +32,17 @@
                 <input type="text" maxlength="11" placeholder="手机/邮箱/用户名" v-model="name">
               </section>
               <section class="login_verification">
-                <input type="text" maxlength="8" placeholder="密码" v-if="showPwd" v-model="pwd">
-                <input type="password" maxlength="8" placeholder="密码" v-else v-model="pwd">
+                <input :type="showPwd?'text':'password'" maxlength="8" placeholder="密码" v-model="pwd">
+<!--                <input type="password" maxlength="8" placeholder="密码" v-else v-model="pwd">-->
                 <div class="switch_button" :class="showPwd?'on':'off'" @click="showPwd=!showPwd">
                   <div class="switch_circle" :class="{right:showPwd}"></div>
-                  <span class="switch_text">{{ showPwd ? 'abc' : '...' }}</span>
+                  <span class="switch_text">{{showPwd ? 'abc' : '...'}}</span>
                 </div>
               </section>
               <section class="login_message">
                 <input type="text" maxlength="11" placeholder="验证码" v-model="captcha">
-                <img class="get_verification" src="./images/captcha.svg" alt="captcha">
+                <img class="get_verification" src="http://localhost:4000/captcha" alt="captcha"
+                  @click="getCaptcha" ref="captcha">
               </section>
             </section>
           </div>
@@ -59,6 +60,8 @@
 
 <script>
 import AlertTip from '../../components/AlertTip/AlertTip'
+import {reqSendCode, reqPasswordLogin, reqSmsLogin} from '../../api'
+
 export default {
   data () {
     return {
@@ -83,45 +86,84 @@ export default {
     }
   },
   methods: {
-    getCode () {
+    async getCode () {
       if (!this.computeTime) {  //启动倒计时
         this.computeTime = 30
-        const intervalId = setInterval(() => {
+        this.intervalId = setInterval(() => {
           this.computeTime--
           if (this.computeTime<=0){
-            clearInterval(intervalId)
+            clearInterval(this.intervalId)
           }
         },1000)
-
         //发送ajax请求
+        const result = await reqSendCode(this.phone)
+        if (result.code === 1) {
+          this.showAlert(result.msg)
+          // 停止倒计时
+          if (this.computeTime) {
+            this.computeTime = 0
+            clearInterval(this.intervalId)
+            this.intervalId = undefined
+          }
+        }
       }
     },
     showAlert (alertText) {
       this.alertShow = true
       this.alertText = alertText
     },
-    login () {
+    async login () {
+      let result
       if (this.loginWay) { //短信登录
         const {rightPhone, phone, code} = this
         if (!rightPhone) {
           this.showAlert('手机号不正确')
+          return
         } else if (!/^\d{6}$/.test(code)){
           this.showAlert('验证码必须是6位数字')
+          return
         }
+        // ajax login
+        result = await reqSmsLogin(phone,code)
       } else {
         const {name, pwd, captcha} = this
         if (!name) {
           this.showAlert('用户名必须指定')
+          return
         } else if (!pwd){
           this.showAlert('密码必须指定')
+          return
         } else if (!captcha) {
           this.showAlert('验证码必须指定')
+          return
         }
+        result = await reqPasswordLogin({name, pwd, captcha})
+      }
+
+      if (this.computeTime) {
+        this.computeTime = 0
+        clearInterval(this.intervalId)
+        this.intervalId = undefined
+      }
+
+      //数据处理
+      if(result.code === 0) {
+        const user = result.data
+        this.$store.dispatch('recordUser', user)
+        this.$router.replace('/profile')
+      } else {
+        this.getCaptcha()
+        const msg = result.msg
+        this.showAlert(msg)
       }
     },
-    closeTip () {
+    closeTip () {  //关闭弹窗
       this.alertShow = false
       this.alertText = ''
+    },
+    getCaptcha () { //获取图片验证码
+      // 每次指定的路径值要不一样
+      this.$refs.captcha.src = 'http://localhost:4000/captcha?time=' + Date.now()
     }
   }
 }
