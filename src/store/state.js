@@ -5,4 +5,7 @@ export default {
   categorys: [], //食品分类
   shops: [],
   userInfo: {}, //用户信息
+  goods: [],
+  ratings: [],
+  info: {},
 }
