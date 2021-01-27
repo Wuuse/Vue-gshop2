@@ -3,7 +3,8 @@
     <div class="goods">
       <div class="menu-wrapper">
         <ul>
-          <li class="menu-item" v-for="(good, index) in goods" :key="index" :class="{current: index===currentIndex}">
+          <li class="menu-item" v-for="(good, index) in goods" :key="index"
+              :class="{current: index===currentIndex}" @click="clickMenuItem(index)">
             <span class="text bottom-border-1px">
               <img class="icon" v-if="good.icon" :src="good.icon">
               {{ good.name }}
@@ -16,7 +17,8 @@
           <li class="food-list-hook" v-for="(good, index) in goods" :key="index">
             <h1 class="title">{{ good.name }}</h1>
             <ul>
-              <li class="food-item bottom-border-1px" v-for="(food, index) in good.foods" :key="index">
+              <li class="food-item bottom-border-1px" v-for="(food, index) in good.foods"
+                  :key="index" @click="showFood(food)">
                 <div class="icon">
                   <img alt="" width="57" height="57" :src="food.icon">
                 </div>
@@ -32,7 +34,7 @@
                     <span class="old" v-if="food.oldPrice">￥{{ food.oldPrice }}</span>
                   </div>
                   <div class="cartcontrol-wrapper">
-                    CartControl
+                    <CartControl :food="food"/>
                   </div>
                 </div>
               </li>
@@ -40,18 +42,29 @@
           </li>
         </ul>
       </div>
+      <ShopCart/>
     </div>
+    <Food :food="food" ref="food"/>
   </div>
 </template>
 <script>
 import BScroll from 'better-scroll'
 import {mapState} from 'vuex'
+import CartControl from '../../../components/CartControl/CartControl'
+import Food from '../../../components/Food/Food'
+import ShopCart from '../../../components/ShopCart/ShopCart'
 export default {
   data () {
     return {
       scrollY: 0,
       tops: [],
+      food: {}
     }
+  },
+  components:{
+    CartControl,
+    Food,
+    ShopCart
   },
   mounted () {
     this.$store.dispatch('getShopGoods', () => { //数据更新后执行
@@ -80,14 +93,17 @@ export default {
   },
   methods: {
     _initScroll () {
-      new BScroll('.menu-wrapper')
-      const foodsScroll = new BScroll('.foods-wrapper', {
-        probeType: 2   //因惯性滑动不会触发
+      new BScroll('.menu-wrapper', {
+        click: true
       })
-      foodsScroll.on('scroll', ({x, y}) => {
+      this.foodsScroll = new BScroll('.foods-wrapper', {
+        probeType: 2,   //因惯性滑动不会触发
+        click: true
+      })
+      this.foodsScroll.on('scroll', ({x, y}) => {
         this.scrollY = Math.abs(y)
       })
-      foodsScroll.on('scrollEnd', ({x, y}) => {
+      this.foodsScroll.on('scrollEnd', ({x, y}) => {
         this.scrollY = Math.abs(y)
       })
     },
@@ -101,6 +117,15 @@ export default {
         tops.push(top)
       })
       this.tops = tops
+    },
+    clickMenuItem (index) {
+      const y = this.tops[index]
+      this.scrollY = y
+      this.foodsScroll.scrollTo(0, -y, 300)
+    },
+    showFood (food) {
+      this.food = food
+      this.$refs.food.toggleShow()
     }
   }
 }
